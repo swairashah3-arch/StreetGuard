@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../home/dashboard_screen.dart';
+import '../home/report_progress_screen.dart';
 import '../home/incident_history_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/custom_button.dart';
 
 class ReportSubmittedScreen extends StatefulWidget {
-  const ReportSubmittedScreen({super.key});
+  final String? crimeId;
+
+  const ReportSubmittedScreen({super.key, this.crimeId});
 
   @override
   State<ReportSubmittedScreen> createState() => _ReportSubmittedScreenState();
@@ -94,12 +97,23 @@ class _ReportSubmittedScreenState extends State<ReportSubmittedScreen> {
                 CustomButton(
                   text: "Track Incident",
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => IncidentHistoryScreen(userName: userName),
-                      ),
-                    );
+                    if (widget.crimeId != null && widget.crimeId!.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ReportProgressScreen(
+                            crimeId: widget.crimeId!,
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => IncidentHistoryScreen(userName: userName),
+                        ),
+                      );
+                    }
                   },
                 ),
                 const SizedBox(height: 16),

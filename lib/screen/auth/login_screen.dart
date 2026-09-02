@@ -48,19 +48,10 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    // ------------ ADMIN LOGIN ------------
-    if (email == "admin@streetguard.com" && pass == "admin123") {
-      await Future.delayed(const Duration(milliseconds: 800)); // Smooth feel
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminDashboard()),
-      );
-      return;
-    }
+
 
     try {
-      final url = Uri.parse("http://localhost:5000/api/auth/login");
+      final url = Uri.parse("http://10.99.58.219:5000/api/auth/login");
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},

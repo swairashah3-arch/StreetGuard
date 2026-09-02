@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/custom_button.dart';
@@ -22,7 +23,6 @@ class SeriousReportScreen extends StatefulWidget {
 class _SeriousReportScreenState extends State<SeriousReportScreen> {
   // Form State
   String selectedCrime = "";
-  final cnicController = TextEditingController();
   final phoneController = TextEditingController();
   final locationController = TextEditingController();
   final descriptionController = TextEditingController();
@@ -37,6 +37,79 @@ class _SeriousReportScreenState extends State<SeriousReportScreen> {
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedDate = DateTime.now();
+    selectedTime = TimeOfDay.now();
+    _initCurrentLocation();
+    _loadUserPhone();
+  }
+
+  Future<void> _loadUserPhone() async {
+    try {
+      final profile = await ApiService.fetchUserProfile();
+      if (profile != null && profile['phoneNumber'] != null) {
+        setState(() {
+          phoneController.text = profile['phoneNumber'] ?? '';
+        });
+      }
+    } catch (e) {
+      print("Error loading user phone: $e");
+    }
+  }
+
+  Future<void> _initCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _showLocationServiceDialog();
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return;
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      return;
+    } 
+
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        _pickedLatLng = LatLng(position.latitude, position.longitude);
+        _pickedLocationLabel = '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+        locationController.text = "GPS Coordinates: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+      });
+    } catch (e) {
+      print("Error getting position: $e");
+    }
+  }
+
+  void _showLocationServiceDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Location Services Disabled"),
+        content: const Text("Please enable location services to automatically tag your incident's coordinates."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
 
   final List<String> seriousCrimeTypes = [
     "Kidnapping",
@@ -96,27 +169,15 @@ class _SeriousReportScreenState extends State<SeriousReportScreen> {
     }
   }
 
-  String _formatCnic(String value) {
-    value = value.replaceAll('-', '');
-    if (value.length > 13) value = value.substring(0, 13);
-    String formatted = '';
-    for (int i = 0; i < value.length; i++) {
-      if (i == 5 || i == 12) formatted += '-';
-      formatted += value[i];
-    }
-    return formatted;
-  }
 
   void onSubmit() async {
-    final cnicDigits = cnicController.text.replaceAll('-', '');
     if (selectedCrime.isEmpty ||
-        cnicDigits.length != 13 ||
         phoneController.text.length != 11 ||
         locationController.text.isEmpty ||
         _pickedLatLng == null ||
         selectedDate == null ||
         selectedTime == null ||
-        descriptionController.text.isEmpty) {
+        (selectedCrime == 'Other Serious' && descriptionController.text.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all required fields and confirm the location."), backgroundColor: AppColors.danger),
       );
@@ -139,12 +200,12 @@ class _SeriousReportScreenState extends State<SeriousReportScreen> {
         time: selectedTime,
       );
 
-      await ApiService.submitReport(report, imageFile: _pickedImage);
+      final crimeId = await ApiService.submitReport(report, imageFile: _pickedImage);
 
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const ReportSubmittedScreen()),
+        MaterialPageRoute(builder: (_) => ReportSubmittedScreen(crimeId: crimeId)),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -160,7 +221,7 @@ class _SeriousReportScreenState extends State<SeriousReportScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Serious Report", style: AppTextStyles.sectionTitle),
+        title: const Text("Street Crime Report", style: AppTextStyles.sectionTitle),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
@@ -294,23 +355,6 @@ class _SeriousReportScreenState extends State<SeriousReportScreen> {
       child: Column(
         children: [
           CustomTextField(
-            label: "Your CNIC Number",
-            hint: "35202-XXXXXXX-X",
-            controller: cnicController,
-            keyboardType: TextInputType.number,
-            maxLength: 15,
-            onChanged: (v) {
-              final formatted = _formatCnic(v);
-              if (formatted != v) {
-                cnicController.value = TextEditingValue(
-                  text: formatted,
-                  selection: TextSelection.collapsed(offset: formatted.length),
-                );
-              }
-            },
-          ),
-          const SizedBox(height: 20),
-          CustomTextField(
             label: "Contact Mobile",
             hint: "03XXXXXXXXX",
             controller: phoneController,
@@ -440,13 +484,15 @@ class _SeriousReportScreenState extends State<SeriousReportScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CustomTextField(
-            label: "Detailed Description",
-            hint: "Provide suspect descriptions, vehicle numbers, or injury details...",
-            controller: descriptionController,
-            maxLines: 5,
-          ),
-          const SizedBox(height: 20),
+          if (selectedCrime == 'Other Serious') ...[
+            CustomTextField(
+              label: "Detailed Description",
+              hint: "Provide suspect descriptions, vehicle numbers, or injury details...",
+              controller: descriptionController,
+              maxLines: 5,
+            ),
+            const SizedBox(height: 20),
+          ],
           CustomTextField(
             label: "Witness Contact Info (Optional)",
             hint: "Name - Phone number",

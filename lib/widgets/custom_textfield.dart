@@ -60,6 +60,7 @@ class CustomTextField extends StatelessWidget {
             filled: true,
             fillColor: AppColors.white,
             suffixIcon: suffixIcon,
+            counterText: "",
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),

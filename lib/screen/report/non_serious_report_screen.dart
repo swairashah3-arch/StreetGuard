@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/custom_button.dart';
@@ -33,6 +34,65 @@ class _NonSeriousReportScreenState extends State<NonSeriousReportScreen> {
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedDate = DateTime.now();
+    selectedTime = TimeOfDay.now();
+    _initCurrentLocation();
+  }
+
+  Future<void> _initCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _showLocationServiceDialog();
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return;
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      return;
+    } 
+
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        _pickedLatLng = LatLng(position.latitude, position.longitude);
+        _pickedLocationLabel = '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+        locationController.text = "GPS Coordinates: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+      });
+    } catch (e) {
+      print("Error getting position: $e");
+    }
+  }
+
+  void _showLocationServiceDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Location Services Disabled"),
+        content: const Text("Please enable location services to automatically tag your incident's coordinates."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
 
   List<String> crimeTypes = [
     "Snatching",
@@ -81,7 +141,7 @@ class _NonSeriousReportScreenState extends State<NonSeriousReportScreen> {
         _pickedLatLng == null ||
         selectedDate == null ||
         selectedTime == null ||
-        descriptionController.text.isEmpty) {
+        (selectedCrime == 'Other' && descriptionController.text.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all required fields."), backgroundColor: AppColors.danger),
       );
@@ -104,12 +164,12 @@ class _NonSeriousReportScreenState extends State<NonSeriousReportScreen> {
         time: selectedTime,
       );
 
-      await ApiService.submitReport(report, imageFile: _pickedImage);
+      final crimeId = await ApiService.submitReport(report, imageFile: _pickedImage);
 
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const ReportSubmittedScreen()),
+        MaterialPageRoute(builder: (_) => ReportSubmittedScreen(crimeId: crimeId)),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -328,13 +388,15 @@ class _NonSeriousReportScreenState extends State<NonSeriousReportScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CustomTextField(
-            label: "Incident description",
-            hint: "What happened specifically? Mention suspects, vehicles...",
-            controller: descriptionController,
-            maxLines: 4,
-          ),
-          const SizedBox(height: 20),
+          if (selectedCrime == 'Other') ...[
+            CustomTextField(
+              label: "Incident description",
+              hint: "What happened specifically? Mention suspects, vehicles...",
+              controller: descriptionController,
+              maxLines: 4,
+            ),
+            const SizedBox(height: 20),
+          ],
           CustomTextField(
             label: "Potential witnesses",
             hint: "Optional name or contact info",

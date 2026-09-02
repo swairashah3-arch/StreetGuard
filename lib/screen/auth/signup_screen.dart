@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:email_otp/email_otp.dart';
+import '../services/api_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -19,6 +21,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final nameController = TextEditingController();
   final emailController = TextEditingController();
   final cnicController = TextEditingController();
+  final phoneController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPassController = TextEditingController();
 
@@ -34,6 +37,7 @@ class _SignupScreenState extends State<SignupScreen> {
     nameController.dispose();
     emailController.dispose();
     cnicController.dispose();
+    phoneController.dispose();
     passwordController.dispose();
     confirmPassController.dispose();
     super.dispose();
@@ -71,22 +75,28 @@ class _SignupScreenState extends State<SignupScreen> {
     return "Strong password";
   }
 
-  void onSignup() async {
+  void _initiateSignup() async {
     final name = nameController.text.trim();
     final email = emailController.text.trim();
     final cnic = cnicController.text.trim();
+    final phone = phoneController.text.trim();
     final pass = passwordController.text.trim();
     final confirm = confirmPassController.text.trim();
 
     setState(() => errorMessage = null);
 
-    if (name.isEmpty || email.isEmpty || cnic.isEmpty || pass.isEmpty || confirm.isEmpty) {
+    if (name.isEmpty || email.isEmpty || cnic.isEmpty || phone.isEmpty || pass.isEmpty || confirm.isEmpty) {
       setState(() => errorMessage = "All fields are required.");
       return;
     }
 
     if (!isValidEmail(email)) {
       setState(() => errorMessage = "Use a supported email (Gmail/Yahoo/etc).");
+      return;
+    }
+
+    if (phone.length < 10 || phone.length > 15) {
+      setState(() => errorMessage = "Please enter a valid contact number.");
       return;
     }
 
@@ -98,7 +108,86 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final url = Uri.parse("http://localhost:5000/api/auth/register");
+      final otpResult = await ApiService.sendOtp(email, phone);
+      
+      if (mounted) setState(() => _isLoading = false);
+
+      if (otpResult != null && otpResult['statusCode'] == 200) {
+        if (mounted) _showOtpDialog(name, email, cnic, phone, pass);
+      } else {
+        final msg = otpResult?['message'] ?? "Failed to send OTP. Try again.";
+        setState(() => errorMessage = msg);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+      setState(() => errorMessage = "Error sending OTP: $e");
+      print("OTP Error: $e");
+    }
+  }
+
+  void _showOtpDialog(String name, String email, String cnic, String phone, String pass) {
+    final emailOtpController = TextEditingController();
+    bool isVerifying = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.surface,
+              title: const Text("Verification Required", style: AppTextStyles.title),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("Enter the email verification code sent to $email.", style: AppTextStyles.body),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailOtpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: InputDecoration(
+                      labelText: "Email Verification Code",
+                      hintText: "Enter Email OTP",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      counterText: "",
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel", style: TextStyle(color: AppColors.secondary)),
+                ),
+                ElevatedButton(
+                  onPressed: isVerifying ? null : () {
+                    if (emailOtpController.text.length < 6) return;
+                    
+                    setDialogState(() => isVerifying = true);
+                    
+                    Navigator.pop(context); // Close dialog
+                    _registerUser(name, email, cnic, phone, pass, emailOtpController.text.trim());
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                  child: isVerifying 
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text("Verify", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          }
+        );
+      }
+    );
+  }
+
+  void _registerUser(String name, String email, String cnic, String phone, String pass, String emailOtp) async {
+    setState(() => _isLoading = true);
+
+    try {
+      final url = Uri.parse("http://10.99.58.219:5000/api/auth/register");
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
@@ -107,6 +196,8 @@ class _SignupScreenState extends State<SignupScreen> {
           "cnic": cnic,
           "email": email,
           "password": pass,
+          "phoneNumber": phone,
+          "emailOtp": emailOtp,
           "role": "citizen"
         }),
       );
@@ -191,6 +282,18 @@ class _SignupScreenState extends State<SignupScreen> {
                       const SizedBox(height: 16),
 
                       CustomTextField(
+                        label: "Contact Number",
+                        hint: "03001234567",
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        maxLength: 15,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      CustomTextField(
                         label: "CNIC",
                         hint: "XXXXX-XXXXXXX-X",
                         controller: cnicController,
@@ -232,7 +335,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       CustomButton(
                         text: "Create Account",
                         isLoading: _isLoading,
-                        onPressed: onSignup,
+                        onPressed: _initiateSignup,
                       ),
                     ],
                   ),

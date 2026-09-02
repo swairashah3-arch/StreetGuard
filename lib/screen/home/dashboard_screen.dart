@@ -7,6 +7,9 @@ import '../report/non_serious_report_screen.dart';
 import '../auth/login_screen.dart';
 import '../map/crime_map_screen.dart';
 import '../services/api_service.dart';
+import 'rewards_screen.dart';
+import 'sos_screen.dart';
+import 'incident_history_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userName;
@@ -90,7 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               delegate: SliverChildListDelegate([
                 // Welcome Section
                 const SizedBox(height: 8),
-                Text('Hello, ${widget.userName} 👋', style: AppTextStyles.display.copyWith(fontSize: 24)),
+                Text('Hello, ${widget.userName} ', style: AppTextStyles.display.copyWith(fontSize: 24)),
                 const SizedBox(height: 4),
                 const Text('Your community is stable today.', style: AppTextStyles.subtitle),
                 
@@ -110,33 +113,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       title: 'Emergency SOS',
                       subtitle: 'Instant alert',
                       color: AppColors.danger,
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            backgroundColor: AppColors.surface,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            title: const Row(
-                              children: [
-                                Icon(Icons.warning_amber_rounded, color: AppColors.danger),
-                                SizedBox(width: 10),
-                                Text("Emergency SOS"),
-                              ],
-                            ),
-                            content: const Text("Dispatching emergency units to your current location. Please stay safe."),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text("DISMISS", style: TextStyle(color: AppColors.secondary)),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SosScreen()),
+                      ),
                     ),
                     QuickActionCard(
                       icon: Icons.gavel_rounded,
-                      title: 'Serious Crime',
+                      title: 'Street Crime',
                       subtitle: 'Legal reporting',
                       color: Colors.deepPurple,
                       onTap: () => Navigator.push(
@@ -145,13 +129,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     QuickActionCard(
-                      icon: Icons.visibility_outlined,
-                      title: 'Observe',
-                      subtitle: 'Non-urgent',
-                      color: AppColors.accent,
+                      icon: Icons.emoji_events_outlined,
+                      title: 'Rewards',
+                      subtitle: 'Check points',
+                      color: Colors.amber.shade800,
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const NonSeriousReportScreen()),
+                        MaterialPageRoute(builder: (_) => const RewardsScreen()),
                       ),
                     ),
                     QuickActionCard(
@@ -167,7 +151,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
+
+                // Track Reports Banner
+                InkWell(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => IncidentHistoryScreen(userName: widget.userName),
+                    ),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.history_rounded, color: Colors.blue),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Track Your Reports',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Check real-time status of your submitted reports',
+                                style: AppTextStyles.subtitle.copyWith(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: AppColors.secondary),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 32),
 
                 // Community Alerts Header
                 Row(

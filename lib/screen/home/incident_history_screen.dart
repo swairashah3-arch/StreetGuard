@@ -5,6 +5,8 @@ import '../../theme/app_text_styles.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'sos_tracker_screen.dart';
+import 'report_progress_screen.dart';
 
 class IncidentHistoryScreen extends StatefulWidget {
   final String userName;
@@ -36,7 +38,7 @@ class _IncidentHistoryScreenState extends State<IncidentHistoryScreen> {
       }
 
       final response = await http.get(
-        Uri.parse('http://127.0.0.1:5000/api/crime/my-reports'),
+        Uri.parse('http://10.99.58.219:5000/api/crime/my-reports'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -182,14 +184,39 @@ class _IncidentHistoryScreenState extends State<IncidentHistoryScreen> {
                 ),
               )
             else
-              ...myCrimes.map((crime) => _incidentCard(
-                title: crime['title'] ?? 'Unknown',
-                area: crime['area'] ?? '',
-                location: crime['location'] ?? '',
-                description: crime['description'] ?? '',
-                time: crime['timeAgo'] ?? '',
-                tag: _getStatusTag(crime['workflowStatus'] ?? crime['status'] ?? '', crime['urgency'] ?? ''),
-                tagColor: _getStatusColor(crime['workflowStatus'] ?? crime['status'] ?? '', crime['urgency'] ?? ''),
+              ...myCrimes.map((crime) => GestureDetector(
+                onTap: () {
+                  final type = crime['type'] ?? 'general';
+                  if (type == 'sos') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SosTrackerScreen(
+                          crimeId: crime['_id'] ?? '',
+                          isSilent: crime['isSilent'] ?? false,
+                        ),
+                      ),
+                    );
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ReportProgressScreen(
+                          crimeId: crime['_id'] ?? '',
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: _incidentCard(
+                  title: crime['title'] ?? 'Unknown',
+                  area: crime['area'] ?? '',
+                  location: crime['location'] ?? '',
+                  description: crime['description'] ?? '',
+                  time: crime['timeAgo'] ?? '',
+                  tag: _getStatusTag(crime['workflowStatus'] ?? crime['status'] ?? '', crime['urgency'] ?? ''),
+                  tagColor: _getStatusColor(crime['workflowStatus'] ?? crime['status'] ?? '', crime['urgency'] ?? ''),
+                ),
               )),
           ],
         ),

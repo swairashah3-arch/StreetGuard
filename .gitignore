@@ -1,4 +1,4 @@
-# Miscellaneous
+# Miscellaneous / OS
 *.class
 *.log
 *.pyc
@@ -11,35 +11,77 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# IntelliJ related
+# Environment variables & secrets (Never commit secrets/credentials)
+.env
+.env.*
+!.env.example
+*.env
+*.pem
+*.cer
+*.crt
+*.pfx
+*.p12
+
+# IntelliJ / Android Studio related
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# Visual Studio Code related
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 
-# Flutter/Dart/Pub related
+# Flutter / Dart / Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
+build/
 /coverage/
 
-# Symbolication related
+# Symbolication & Obfuscation
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
+# Android build artifacts, local properties & keystores
 /android/app/debug
 /android/app/profile
 /android/app/release
+.gradle/
+**/android/.gradle/
+**/android/**/build/
+**/android/captures/
+**/android/local.properties
+**/android/key.properties
+key.properties
+*.jks
+*.keystore
+
+# iOS & macOS build artifacts
+**/ios/**/Pods/
+**/ios/**/.symlinks/
+**/ios/**/Flutter/Flutter.framework
+**/ios/**/Flutter/Flutter.podspec
+**/ios/**/Flutter/Generated.xcconfig
+**/ios/**/Flutter/app.framework
+**/ios/**/DerivedData/
+**/ios/Flutter/ephemeral/
+**/macos/Flutter/ephemeral/
+xcuserdata/
+
+# Windows & Linux desktop ephemeral build artifacts
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
